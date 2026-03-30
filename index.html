@@ -11,8 +11,10 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- Library untuk Screenshot DOM -->
+    <!-- Library untuk PPT dan Screenshot DOM (Versi Paling Stabil) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.min.js"></script>
 
     <script>
         tailwind.config = {
@@ -25,9 +27,10 @@
         }
     </script>
     <style>
-        /* CSS RESET UNTUK EXPORT BERSIH */
+        /* CLASS KHUSUS SAAT EXPORT AGAR BERSIH DARI BLOGGER */
         body.export-mode {
             background-color: white !important;
+            background-image: none !important;
             padding: 0 !important;
             margin: 0 !important;
         }
@@ -35,291 +38,837 @@
             margin: 0 auto !important;
             border: none !important;
             box-shadow: none !important;
-            padding: 0 !important;
         }
 
-        /* TAMPILAN KHUSUS PRINT */
-        .print-header { display: none; }
-
+        /* CSS Khusus Print / PDF */
         @media print {
-            * { 
-                -webkit-print-color-adjust: exact !important; 
-                print-color-adjust: exact !important; 
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
             .no-print { display: none !important; }
-            .print-header { 
-                display: flex !important; 
-                align-items: center; 
-                gap: 12px;
-                padding: 20px;
-                border-bottom: 2px solid #f1f5f9;
-            }
             body { background-color: white !important; padding: 0 !important; margin: 0 !important; }
             .app-container { box-shadow: none !important; max-width: 100% !important; margin: 0 !important; border: none !important; padding: 0 !important; }
-            .main-content-card { box-shadow: none !important; border: none !important; margin: 0 !important; border-radius: 0 !important; }
+            .fasilitas-item { border: none !important; padding: 0 !important; margin: 0 !important; background: transparent !important; }
+            .main-content-card { box-shadow: none !important; border: none !important; margin: 0 !important; }
         }
         
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        /* LOGIKA MODE EDIT */
+        /* === LOGIKA MODE EDIT === */
         .show-on-edit { display: none !important; }
         body.is-editing .show-on-edit { display: flex !important; }
         body.is-editing .show-on-edit-block { display: block !important; }
+        body.is-editing .hidden-btn { display: none !important; }
+
+        /* Efek highlight teks saat mode edit aktif */
         body.is-editing .editable {
-            outline: 2px dashed #f97316; padding: 2px 4px; border-radius: 4px; background-color: #fff7ed;
+            outline: 2px dashed #f97316;
+            padding: 2px 4px;
+            border-radius: 4px;
+            background-color: #fff7ed;
+            transition: all 0.2s;
         }
-        body.is-editing .date-wrapper { outline: 2px dashed #f97316; background-color: #fff7ed; border-radius: 8px; }
+        body.is-editing .editable:hover { background-color: #ffedd5; cursor: text; }
+        body.is-editing .editable:focus { outline: 2px solid #ea580c; background-color: white; }
+        
+        body.is-editing .date-wrapper { outline: 2px dashed #f97316; background-color: #fff7ed; border-radius: 8px; cursor: pointer; }
+        body.is-editing .fasilitas-item { padding: 8px; margin: -8px; border-radius: 12px; border: 1px dashed #cbd5e1; background-color: #f8fafc; }
+        
+        /* Efek hover logo saat mode edit */
         body.is-editing .logo-wrapper { outline: 2px dashed #f97316; outline-offset: 4px; border-radius: 9999px; }
+        
+        body.is-editing .day-icon-btn { cursor: pointer; box-shadow: 0 0 0 4px #ffedd5; transition: transform 0.2s; }
+        body.is-editing .day-icon-btn:hover { transform: scale(1.1); }
+        body.is-editing .day-icon-btn::after {
+            content: '+'; position: absolute; right: -6px; bottom: -6px; background: #10b981; color: white;
+            border-radius: 50%; width: 16px; height: 16px; font-size: 12px; display: flex; align-items: center; justify-content: center; border: 2px solid white;
+        }
     </style>
 </head>
 <body class="bg-slate-100 min-h-screen py-4 sm:py-8 px-2 sm:px-4 flex flex-col items-center text-slate-800 transition-colors duration-300">
 
+    <!-- Input File Tersembunyi (Satu untuk semua) -->
     <input type="file" id="fileInput" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
 
     <div class="app-container w-full max-w-2xl relative">
         
-        <!-- Toolbar Menu (Hanya di Layar) -->
+        <!-- MENU MELAYANG (Sticky Toolbar) -->
         <div class="no-print sticky top-2 sm:top-4 z-[100] w-full mb-4 px-1">
             <div class="bg-white/95 backdrop-blur-md border border-slate-200 p-3 sm:p-4 flex flex-col sm:flex-row gap-3 justify-between items-center rounded-2xl shadow-xl">
+                
                 <div class="flex items-center gap-2 group">
+                    <!-- Logo Editable -->
                     <div class="logo-wrapper relative cursor-pointer" onclick="if(isEditMode) triggerFileSelect('logo')">
                         <div id="logo-container" class="w-10 h-10 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center font-bold text-xl shrink-0 overflow-hidden shadow-sm">
                             <i class="fa-solid fa-plane-departure" id="logo-icon"></i>
                         </div>
+                        <div class="show-on-edit absolute inset-0 bg-black/50 rounded-full flex items-center justify-center text-white opacity-0 hover:opacity-100 transition-opacity">
+                            <i class="fa-solid fa-camera text-xs"></i>
+                        </div>
                     </div>
+                    <!-- Teks Editable -->
                     <h1 id="app-logo-text" class="font-bold text-lg text-slate-800 cursor-pointer" onclick="if(isEditMode) editLogoText()">Arzayn Holiday</h1>
+                    <i class="show-on-edit fa-solid fa-pencil text-xs text-brand-500 ml-1 opacity-70"></i>
                 </div>
+                
                 <div class="flex flex-wrap justify-center gap-2 w-full sm:w-auto">
-                    <button onclick="toggleEditMode()" id="editBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-sm">
-                        <i class="fa-solid fa-pen-to-square"></i> <span>Edit Data</span>
+                    <!-- Tombol Edit -->
+                    <button onclick="toggleEditMode()" id="editBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2 shadow-sm">
+                        <i class="fa-solid fa-pen-to-square"></i> <span class="whitespace-nowrap">Edit Data</span>
                     </button>
-                    <button onclick="printPDF()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-sm">
-                        <i class="fa-solid fa-file-pdf"></i> <span>Simpan PDF</span>
+                    <!-- Tombol PDF -->
+                    <button onclick="printPDF()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2 shadow-sm">
+                        <i class="fa-solid fa-file-pdf"></i> <span class="hidden sm:inline">PDF</span>
+                    </button>
+                    <!-- Tombol PPT -->
+                    <button id="pptBtn" onclick="exportToPPT()" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2 shadow-sm">
+                        <i class="fa-solid fa-file-powerpoint"></i> <span class="hidden sm:inline">PPT</span>
                     </button>
                 </div>
+
             </div>
         </div>
 
-        <!-- Kanvas Konten -->
+        <!-- KONTEN UTAMA APLIKASI (Area yang akan direkam) -->
         <div class="main-content-card bg-white rounded-[2rem] shadow-2xl relative ring-1 ring-slate-200 overflow-hidden">
             
-            <!-- Header Khusus PDF (Hanya muncul saat print) -->
-            <div class="print-header">
-                <div id="logo-container-print" class="w-12 h-12 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center font-bold text-2xl overflow-hidden">
-                    <i class="fa-solid fa-plane-departure"></i>
-                </div>
-                <div>
-                    <h1 id="app-logo-text-print" class="font-bold text-xl text-slate-800">Arzayn Holiday</h1>
-                    <p class="text-slate-500 text-xs font-medium uppercase tracking-widest">Official Itinerary Report</p>
-                </div>
-            </div>
-
+            <!-- Hero Banner Editable -->
             <div class="relative h-64 sm:h-80 bg-slate-800 group/hero">
-                <img id="hero-bg-img" src="https://images.unsplash.com/photo-1584810359583-96fc3448beaa?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80" crossorigin="anonymous" alt="BG" class="w-full h-full object-cover opacity-60">
-                <button onclick="triggerFileSelect('hero')" class="show-on-edit absolute top-4 right-4 bg-white/90 px-3 py-2 rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 z-20">
+                <!-- Tambahkan crossorigin="anonymous" agar fungsi PPT tidak diblokir -->
+                <img id="hero-bg-img" src="https://images.unsplash.com/photo-1584810359583-96fc3448beaa?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80" crossorigin="anonymous" alt="Background" class="w-full h-full object-cover opacity-60">
+                
+                <!-- Tombol Ganti BG -->
+                <button onclick="triggerFileSelect('hero')" class="show-on-edit absolute top-4 right-4 bg-white/90 hover:bg-white text-slate-700 px-3 py-2 rounded-xl text-xs font-bold shadow-lg items-center gap-2 z-20 transition-all">
                     <i class="fa-solid fa-image text-brand-500"></i> Ganti Background
                 </button>
+
                 <div class="absolute bottom-0 left-0 w-full p-6 sm:p-8 bg-gradient-to-t from-slate-900 via-slate-900/80 to-transparent">
                     <span class="editable bg-brand-500 text-white text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider mb-3 inline-block shadow-sm">Study Tour SMP IT Insan Kamil</span>
                     <h2 class="editable text-3xl sm:text-4xl font-extrabold text-white leading-tight mb-2">Tour Cikarang - Jogja Istimewa</h2>
                     <p class="text-slate-200 text-sm sm:text-base font-medium flex items-center gap-2">
-                        <i class="fa-solid fa-calendar-days"></i> <span class="editable">29 - 31 Mei 2026</span>
+                        <i class="fa-solid fa-calendar-days"></i> 
+                        <span class="editable">29 - 31 Mei 2026</span>
                     </p>
                 </div>
             </div>
 
             <div class="p-5 sm:p-8 space-y-8">
-                <!-- Info Grid -->
+                
+                <!-- Quick Info Grid -->
                 <div class="grid grid-cols-2 gap-3 sm:gap-4">
                     <div class="bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-100 flex items-start gap-3">
-                        <div class="bg-blue-100 text-blue-600 p-2 rounded-xl shrink-0"><i class="fa-solid fa-map-location-dot"></i></div>
-                        <div><p class="text-[10px] text-slate-500 font-semibold uppercase">Destinasi</p><p class="editable font-bold text-slate-800 text-sm sm:text-base">Yogyakarta</p></div>
+                        <div class="bg-blue-100 text-blue-600 p-2 sm:p-2.5 rounded-xl shrink-0"><i class="fa-solid fa-map-location-dot"></i></div>
+                        <div>
+                            <p class="text-[10px] sm:text-xs text-slate-500 font-semibold uppercase">Destinasi</p>
+                            <p class="editable font-bold text-slate-800 text-sm sm:text-base leading-tight">Yogyakarta</p>
+                        </div>
                     </div>
                     <div class="bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-100 flex items-start gap-3">
-                        <div class="bg-green-100 text-green-600 p-2 rounded-xl shrink-0"><i class="fa-solid fa-users"></i></div>
-                        <div><p class="text-[10px] text-slate-500 font-semibold uppercase">Peserta</p><p class="editable font-bold text-slate-800 text-sm sm:text-base">180 Orang</p></div>
+                        <div class="bg-green-100 text-green-600 p-2 sm:p-2.5 rounded-xl shrink-0"><i class="fa-solid fa-users"></i></div>
+                        <div>
+                            <p class="text-[10px] sm:text-xs text-slate-500 font-semibold uppercase">Peserta</p>
+                            <p class="editable font-bold text-slate-800 text-sm sm:text-base leading-tight">180 Orang</p>
+                        </div>
                     </div>
                     <div class="bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-100 flex items-start gap-3">
-                        <div class="bg-purple-100 text-purple-600 p-2 rounded-xl shrink-0"><i class="fa-solid fa-clock"></i></div>
-                        <div><p class="text-[10px] text-slate-500 font-semibold uppercase">Durasi</p><p class="editable font-bold text-slate-800 text-sm sm:text-base">3 Hari 2 Malam</p></div>
+                        <div class="bg-purple-100 text-purple-600 p-2 sm:p-2.5 rounded-xl shrink-0"><i class="fa-solid fa-clock"></i></div>
+                        <div>
+                            <p class="text-[10px] sm:text-xs text-slate-500 font-semibold uppercase">Durasi</p>
+                            <p class="editable font-bold text-slate-800 text-sm sm:text-base leading-tight">3 Hari 2 Malam</p>
+                        </div>
                     </div>
                     <div class="bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-100 flex items-start gap-3">
-                        <div class="bg-brand-100 text-brand-600 p-2 rounded-xl shrink-0"><i class="fa-solid fa-wallet"></i></div>
-                        <div><p class="text-[10px] text-slate-500 font-semibold uppercase">Budget</p><p class="editable font-bold text-slate-800 text-sm sm:text-base">Rp 1,3 Jt / Pax</p></div>
+                        <div class="bg-brand-100 text-brand-600 p-2 sm:p-2.5 rounded-xl shrink-0"><i class="fa-solid fa-wallet"></i></div>
+                        <div>
+                            <p class="text-[10px] sm:text-xs text-slate-500 font-semibold uppercase">Budget</p>
+                            <p class="editable font-bold text-slate-800 text-sm sm:text-base leading-tight">Rp 1,3 Jt / Pax</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Catatan Penting -->
+                <div class="bg-red-50 border border-red-200 p-4 rounded-2xl flex gap-3 sm:gap-4 items-start sm:items-center">
+                    <div class="text-red-500 text-xl sm:text-2xl mt-1 sm:mt-0"><i class="fa-solid fa-circle-exclamation"></i></div>
+                    <div>
+                        <h4 class="font-bold text-red-800 text-sm">Catatan Penting</h4>
+                        <p class="editable text-red-600 text-xs sm:text-sm leading-snug mt-1 sm:mt-0">Peserta wajib membawa kartu pengenal yang sudah disediakan Arzayn Holiday selama kegiatan berlangsung.</p>
                     </div>
                 </div>
 
                 <!-- Fasilitas -->
                 <div>
-                    <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-200 pb-2">Fasilitas All-In</h3>
-                    <div id="fasilitas-container" class="grid sm:grid-cols-2 gap-4">
-                        <div class="flex gap-3 relative fasilitas-item"><div class="w-6 shrink-0"><i class="fa-solid fa-hotel text-brand-500"></i></div><div><h4 class="editable font-bold text-sm">Hotel Bintang 3</h4><p class="editable text-slate-500 text-xs">Menginap 2 malam (Twin Share) di Citra Dream Tugu.</p></div><button onclick="this.parentElement.remove()" class="show-on-edit absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-[10px]"><i class="fa-solid fa-trash"></i></button></div>
-                        <div class="flex gap-3 relative fasilitas-item"><div class="w-6 shrink-0"><i class="fa-solid fa-utensils text-brand-500"></i></div><div><h4 class="editable font-bold text-sm">Konsumsi Lengkap</h4><p class="editable text-slate-500 text-xs">Makan 8x selama perjalanan.</p></div><button onclick="this.parentElement.remove()" class="show-on-edit absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-[10px]"><i class="fa-solid fa-trash"></i></button></div>
-                    </div>
-                    <button onclick="addFasilitas()" class="show-on-edit w-full mt-4 bg-slate-50 border border-dashed border-slate-300 py-2 rounded-xl text-xs font-bold text-slate-500">+ Tambah Fasilitas</button>
-                </div>
-
-                <!-- Rundown -->
-                <div>
-                    <h3 class="text-lg font-bold text-slate-800 mb-6 border-b border-slate-200 pb-2">Rundown Perjalanan</h3>
-                    <div id="timeline-container" class="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:h-full before:w-0.5 before:bg-slate-200 pb-4">
-                        <div class="day-block relative flex items-start group">
-                            <div class="day-icon-btn relative flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-brand-500 text-white font-bold text-sm shadow shrink-0 z-10">H1</div>
-                            <div class="ml-4 w-full bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                                <div class="date-wrapper relative bg-brand-50 text-brand-600 px-3 py-1.5 rounded-lg inline-block mb-4 overflow-hidden">
-                                    <input type="date" class="show-on-edit-block absolute inset-0 opacity-0 cursor-pointer" onchange="updateDayDate(this, 'date-h1-text')">
-                                    <span class="text-[10px] font-bold uppercase tracking-wider">Hari Pertama</span>
-                                    <h4 id="date-h1-text" class="font-bold text-sm">29 Mei 2026</h4>
-                                </div>
-                                <div id="container-h1">
-                                    <div class="mb-4 relative group">
-                                        <h5 class="editable font-bold text-sm">Kumpul & Berangkat</h5>
-                                        <p class="editable text-slate-500 text-xs mt-1">Persiapan dan perjalanan dari Cikarang menuju Yogyakarta.</p>
-                                    </div>
-                                </div>
-                                <button onclick="addRundownItem('container-h1')" class="show-on-edit w-full mt-2 bg-slate-50 border border-dashed border-slate-300 py-2 rounded-lg text-[10px] font-bold text-slate-400">+ Tambah Jadwal</button>
+                    <h3 class="text-lg sm:text-xl font-bold text-slate-800 mb-4 border-b border-slate-200 pb-2">Fasilitas All-In</h3>
+                    
+                    <div id="fasilitas-container" class="grid sm:grid-cols-2 gap-4 gap-y-6">
+                        <div class="flex gap-3 relative group fasilitas-item transition-all">
+                            <button onclick="removeElement(this)" class="show-on-edit no-print absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 items-center justify-center text-[10px] shadow-sm z-20 hover:bg-red-600 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                            <div class="w-6 text-center shrink-0"><i class="fa-solid fa-hotel text-brand-500 mt-1"></i></div>
+                            <div class="w-full">
+                                <h4 class="editable font-bold text-slate-800 text-sm">Hotel Bintang 3</h4>
+                                <p class="editable text-slate-500 text-xs mt-1">Menginap 2 malam (Twin Share) 1 kamar 4 orang di Citra Dream Tugu.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-3 relative group fasilitas-item transition-all">
+                            <button onclick="removeElement(this)" class="show-on-edit no-print absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 items-center justify-center text-[10px] shadow-sm z-20 hover:bg-red-600 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                            <div class="w-6 text-center shrink-0"><i class="fa-solid fa-utensils text-brand-500 mt-1"></i></div>
+                            <div class="w-full">
+                                <h4 class="editable font-bold text-slate-800 text-sm">Konsumsi Lengkap</h4>
+                                <p class="editable text-slate-500 text-xs mt-1">Makan 8x selama perjalanan + 1x Snack Box awal keberangkatan.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-3 relative group fasilitas-item transition-all">
+                            <button onclick="removeElement(this)" class="show-on-edit no-print absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 items-center justify-center text-[10px] shadow-sm z-20 hover:bg-red-600 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                            <div class="w-6 text-center shrink-0"><i class="fa-solid fa-truck-monster text-brand-500 mt-1"></i></div>
+                            <div class="w-full">
+                                <h4 class="editable font-bold text-slate-800 text-sm">Jeep Eksklusif</h4>
+                                <p class="editable text-slate-500 text-xs mt-1">1 Jeep Lava Tour Merapi khusus untuk 4 orang peserta.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-3 relative group fasilitas-item transition-all">
+                            <button onclick="removeElement(this)" class="show-on-edit no-print absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 items-center justify-center text-[10px] shadow-sm z-20 hover:bg-red-600 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                            <div class="w-6 text-center shrink-0"><i class="fa-solid fa-ticket text-brand-500 mt-1"></i></div>
+                            <div class="w-full">
+                                <h4 class="editable font-bold text-slate-800 text-sm">Tiket Wisata</h4>
+                                <p class="editable text-slate-500 text-xs mt-1">Tiket masuk utama: HeHa Ocean View & Keraton Jogja.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-3 relative group fasilitas-item transition-all">
+                            <button onclick="removeElement(this)" class="show-on-edit no-print absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 items-center justify-center text-[10px] shadow-sm z-20 hover:bg-red-600 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                            <div class="w-6 text-center shrink-0"><i class="fa-solid fa-road text-brand-500 mt-1"></i></div>
+                            <div class="w-full">
+                                <h4 class="editable font-bold text-slate-800 text-sm">Akomodasi Jalan</h4>
+                                <p class="editable text-slate-500 text-xs mt-1">Tol, Parkir armada, Retribusi wisata & Tips Crew.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-3 relative group fasilitas-item transition-all">
+                            <button onclick="removeElement(this)" class="show-on-edit no-print absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 items-center justify-center text-[10px] shadow-sm z-20 hover:bg-red-600 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                            <div class="w-6 text-center shrink-0"><i class="fa-solid fa-camera text-brand-500 mt-1"></i></div>
+                            <div class="w-full">
+                                <h4 class="editable font-bold text-slate-800 text-sm">Dokumentasi</h4>
+                                <p class="editable text-slate-500 text-xs mt-1">Foto, Video dokumentasi kegiatan, Spanduk dan Banner.</p>
                             </div>
                         </div>
                     </div>
-                    <button onclick="addDay()" class="show-on-edit w-full mt-4 bg-indigo-50 border border-dashed border-indigo-200 py-3 rounded-xl text-xs font-bold text-indigo-500">+ Tambah Hari</button>
+
+                    <div class="mt-4">
+                        <button onclick="addFasilitas()" class="show-on-edit w-full bg-slate-100 hover:bg-slate-200 text-slate-600 py-2 rounded-xl text-xs font-bold border border-dashed border-slate-300 flex items-center justify-center gap-2 transition-colors"><i class="fa-solid fa-plus"></i> Tambah Data Fasilitas</button>
+                    </div>
                 </div>
 
-                <!-- Biaya -->
+                <!-- Rundown Acara -->
                 <div>
-                    <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-200 pb-2">Rincian Biaya</h3>
-                    <div class="overflow-hidden rounded-xl border border-slate-200">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-slate-50 text-[10px] font-bold uppercase text-slate-500"><tr class="border-b border-slate-200"><th class="px-4 py-3">Komponen</th><th class="px-4 py-3 text-right">Estimasi (Rp)</th></tr></thead>
-                            <tbody id="biaya-container" class="divide-y divide-slate-100">
-                                <tr><td class="px-4 py-3 editable relative"><button onclick="this.closest('tr').remove(); calculateTotal();" class="show-on-edit no-print absolute left-1 top-3 text-red-500"><i class="fa-solid fa-trash text-xs"></i></button><span class="ml-4">Transportasi Bus Pariwisata Unit 2025</span></td><td class="px-4 py-3 text-right font-semibold editable cost-value" oninput="calculateTotal()" onblur="formatRupiahCell(this)">55.000.000</td></tr>
-                                <tr><td class="px-4 py-3 editable relative"><button onclick="this.closest('tr').remove(); calculateTotal();" class="show-on-edit no-print absolute left-1 top-3 text-red-500"><i class="fa-solid fa-trash text-xs"></i></button><span class="ml-4">Akomodasi Hotel Citra Dream 3D2N</span></td><td class="px-4 py-3 text-right font-semibold editable cost-value" oninput="calculateTotal()" onblur="formatRupiahCell(this)">70.000.000</td></tr>
+                    <h3 class="text-lg sm:text-xl font-bold text-slate-800 mb-6 border-b border-slate-200 pb-2">Peta Perjalanan (Rundown)</h3>
+                    
+                    <div id="timeline-container" class="space-y-6 sm:space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-slate-200 pb-4">
+                        
+                        <!-- =================== HARI 1 =================== -->
+                        <div class="day-block relative flex items-start md:items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                            <div onclick="if(isEditMode) addDay()" title="Tambah Hari Baru" class="day-icon-btn relative flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-brand-500 text-white font-bold text-sm shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 mt-2 md:mt-0">H1</div>
+                            
+                            <div class="w-[calc(100%-3.5rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm relative">
+                                <button onclick="removeDay(this)" title="Hapus Hari" class="show-on-edit no-print absolute -right-3 -top-3 bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm shadow-md z-30 hover:bg-red-700 transition-colors"><i class="fa-solid fa-trash"></i></button>
+
+                                <div class="date-wrapper relative bg-brand-50 text-brand-600 px-3 py-1.5 rounded-lg inline-block mb-4 overflow-hidden">
+                                    <input type="date" class="show-on-edit-block absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="updateDayDate(this, 'date-h1-text')">
+                                    <span class="text-xs font-semibold uppercase tracking-wider flex items-center gap-1">Hari Pertama <i class="show-on-edit fa-solid fa-pen text-[10px] ml-1 opacity-70"></i></span>
+                                    <h4 id="date-h1-text" class="font-bold text-sm sm:text-base">29 Mei 2026</h4>
+                                </div>
+                                
+                                <div id="container-h1">
+                                    <div class="mb-5 relative group">
+                                        <button onclick="removeElement(this)" class="show-on-edit no-print absolute -left-3 -top-3 bg-red-500 text-white rounded-full w-6 h-6 items-center justify-center text-xs shadow-md z-20 hover:bg-red-600 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                                        <span class="editable inline-block px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-bold mb-1.5"><i class="fa-regular fa-clock mr-1"></i> 16:00 - 17:00</span>
+                                        <h5 class="editable font-bold text-slate-800 text-sm">Kumpul & Absensi</h5>
+                                        <p class="editable text-slate-500 text-xs mt-1 leading-relaxed">Lokasi: Cikarang. Peserta melakukan absensi dan persiapan keberangkatan.</p>
+                                        <div class="mt-3 flex gap-2 overflow-x-auto hide-scrollbar snap-x pb-2" id="gallery-h1-1">
+                                            <button onclick="triggerFileSelect('gallery', 'gallery-h1-1')" class="show-on-edit add-photo-btn shrink-0 w-28 h-28 rounded-2xl border-2 border-dashed border-slate-300 flex-col items-center justify-center text-slate-400 hover:text-brand-500 hover:border-brand-300 hover:bg-brand-50 transition-colors">
+                                                <i class="fa-solid fa-plus text-2xl"></i><span class="text-xs mt-2 font-semibold">Foto</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-2 relative group">
+                                        <button onclick="removeElement(this)" class="show-on-edit no-print absolute -left-3 -top-3 bg-red-500 text-white rounded-full w-6 h-6 items-center justify-center text-xs shadow-md z-20 hover:bg-red-600 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                                        <span class="editable inline-block px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-bold mb-1.5"><i class="fa-regular fa-clock mr-1"></i> 17:00 - 02:00</span>
+                                        <h5 class="editable font-bold text-slate-800 text-sm">Perjalanan Cikarang - Jogja</h5>
+                                        <p class="editable text-slate-500 text-xs mt-1 leading-relaxed">Perjalanan malam via Tol Trans Jawa. Estimasi 9 jam termasuk istirahat di rest area dan free makan.</p>
+                                        <div class="mt-3 flex gap-2 overflow-x-auto hide-scrollbar snap-x pb-2" id="gallery-h1-2">
+                                            <button onclick="triggerFileSelect('gallery', 'gallery-h1-2')" class="show-on-edit add-photo-btn shrink-0 w-28 h-28 rounded-2xl border-2 border-dashed border-slate-300 flex-col items-center justify-center text-slate-400 hover:text-brand-500 hover:border-brand-300 hover:bg-brand-50 transition-colors">
+                                                <i class="fa-solid fa-plus text-2xl"></i><span class="text-xs mt-2 font-semibold">Foto</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-4">
+                                    <button onclick="addRundownItem('container-h1')" class="show-on-edit w-full bg-slate-100 hover:bg-slate-200 text-slate-600 py-2 rounded-xl text-xs font-bold border border-dashed border-slate-300 flex items-center justify-center gap-2 transition-colors"><i class="fa-solid fa-plus"></i> Tambah Jadwal</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- =================== HARI 2 =================== -->
+                        <div class="day-block relative flex items-start md:items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                            <div onclick="if(isEditMode) addDay()" title="Tambah Hari Baru" class="day-icon-btn relative flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-blue-500 text-white font-bold text-sm shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 mt-2 md:mt-0">H2</div>
+                            <div class="w-[calc(100%-3.5rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm relative">
+                                <button onclick="removeDay(this)" title="Hapus Hari" class="show-on-edit no-print absolute -right-3 -top-3 bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm shadow-md z-30 hover:bg-red-700 transition-colors"><i class="fa-solid fa-trash"></i></button>
+
+                                <div class="date-wrapper relative bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg inline-block mb-4 overflow-hidden">
+                                    <input type="date" class="show-on-edit-block absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="updateDayDate(this, 'date-h2-text')">
+                                    <span class="text-xs font-semibold uppercase tracking-wider flex items-center gap-1">Hari Kedua <i class="show-on-edit fa-solid fa-pen text-[10px] ml-1 opacity-70"></i></span>
+                                    <h4 id="date-h2-text" class="font-bold text-sm sm:text-base">30 Mei 2026</h4>
+                                </div>
+                                
+                                <div id="container-h2">
+                                    <div class="mb-5 relative group">
+                                        <button onclick="removeElement(this)" class="show-on-edit no-print absolute -left-3 -top-3 bg-red-500 text-white rounded-full w-6 h-6 items-center justify-center text-xs shadow-md z-20 hover:bg-red-600 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                                        <span class="editable inline-block px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-bold mb-1.5"><i class="fa-regular fa-clock mr-1"></i> 07:00 - 11:00</span>
+                                        <h5 class="editable font-bold text-slate-800 text-sm">Lava Tour Merapi</h5>
+                                        <p class="editable text-slate-500 text-xs mt-1 leading-relaxed">Eksplorasi lereng Merapi menggunakan Jeep (4 pax/Jeep). Destinasi: Museum Sisa Hartaku, Batu Alien, dan Bunker Kaliadem.</p>
+                                        <div class="mt-3 flex gap-2 overflow-x-auto hide-scrollbar snap-x pb-2" id="gallery-h2-1">
+                                            <button onclick="triggerFileSelect('gallery', 'gallery-h2-1')" class="show-on-edit add-photo-btn shrink-0 w-28 h-28 rounded-2xl border-2 border-dashed border-slate-300 flex-col items-center justify-center text-slate-400 hover:text-brand-500 hover:border-brand-300 hover:bg-brand-50 transition-colors">
+                                                <i class="fa-solid fa-plus text-2xl"></i><span class="text-xs mt-2 font-semibold">Foto</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="mb-2 relative group">
+                                        <button onclick="removeElement(this)" class="show-on-edit no-print absolute -left-3 -top-3 bg-red-500 text-white rounded-full w-6 h-6 items-center justify-center text-xs shadow-md z-20 hover:bg-red-600 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                                        <span class="editable inline-block px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-bold mb-1.5"><i class="fa-regular fa-clock mr-1"></i> 18:00 - 22:00</span>
+                                        <h5 class="editable font-bold text-slate-800 text-sm">Malioboro & Makan Malam</h5>
+                                        <p class="editable text-slate-500 text-xs mt-1 leading-relaxed">Acara bebas berbelanja oleh-oleh dan makan malam di area Malioboro.</p>
+                                        <div class="mt-3 flex gap-2 overflow-x-auto hide-scrollbar snap-x pb-2" id="gallery-h2-3">
+                                            <button onclick="triggerFileSelect('gallery', 'gallery-h2-3')" class="show-on-edit add-photo-btn shrink-0 w-28 h-28 rounded-2xl border-2 border-dashed border-slate-300 flex-col items-center justify-center text-slate-400 hover:text-brand-500 hover:border-brand-300 hover:bg-brand-50 transition-colors">
+                                                <i class="fa-solid fa-plus text-2xl"></i><span class="text-xs mt-2 font-semibold">Foto</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-4">
+                                    <button onclick="addRundownItem('container-h2')" class="show-on-edit w-full bg-slate-100 hover:bg-slate-200 text-slate-600 py-2 rounded-xl text-xs font-bold border border-dashed border-slate-300 flex items-center justify-center gap-2 transition-colors"><i class="fa-solid fa-plus"></i> Tambah Jadwal</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- =================== HARI 3 =================== -->
+                        <div class="day-block relative flex items-start md:items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                            <div onclick="if(isEditMode) addDay()" title="Tambah Hari Baru" class="day-icon-btn relative flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-purple-500 text-white font-bold text-sm shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 mt-2 md:mt-0">H3</div>
+                            <div class="w-[calc(100%-3.5rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm relative">
+                                <button onclick="removeDay(this)" title="Hapus Hari" class="show-on-edit no-print absolute -right-3 -top-3 bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm shadow-md z-30 hover:bg-red-700 transition-colors"><i class="fa-solid fa-trash"></i></button>
+
+                                <div class="date-wrapper relative bg-purple-50 text-purple-600 px-3 py-1.5 rounded-lg inline-block mb-4 overflow-hidden">
+                                    <input type="date" class="show-on-edit-block absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="updateDayDate(this, 'date-h3-text')">
+                                    <span class="text-xs font-semibold uppercase tracking-wider flex items-center gap-1">Hari Ketiga <i class="show-on-edit fa-solid fa-pen text-[10px] ml-1 opacity-70"></i></span>
+                                    <h4 id="date-h3-text" class="font-bold text-sm sm:text-base">31 Mei 2026</h4>
+                                </div>
+                                
+                                <div id="container-h3">
+                                    <div class="mb-5 relative group">
+                                        <button onclick="removeElement(this)" class="show-on-edit no-print absolute -left-3 -top-3 bg-red-500 text-white rounded-full w-6 h-6 items-center justify-center text-xs shadow-md z-20 hover:bg-red-600 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                                        <span class="editable inline-block px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-bold mb-1.5"><i class="fa-regular fa-clock mr-1"></i> 08:00 - 10:00</span>
+                                        <h5 class="editable font-bold text-slate-800 text-sm">Keraton Jogja</h5>
+                                        <p class="editable text-slate-500 text-xs mt-1 leading-relaxed">Wisata sejarah dan budaya di pandu oleh guide lokal.</p>
+                                        <div class="mt-3 flex gap-2 overflow-x-auto hide-scrollbar snap-x pb-2" id="gallery-h3-1">
+                                            <button onclick="triggerFileSelect('gallery', 'gallery-h3-1')" class="show-on-edit add-photo-btn shrink-0 w-28 h-28 rounded-2xl border-2 border-dashed border-slate-300 flex-col items-center justify-center text-slate-400 hover:text-brand-500 hover:border-brand-300 hover:bg-brand-50 transition-colors">
+                                                <i class="fa-solid fa-plus text-2xl"></i><span class="text-xs mt-2 font-semibold">Foto</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="mb-2 relative group">
+                                        <button onclick="removeElement(this)" class="show-on-edit no-print absolute -left-3 -top-3 bg-red-500 text-white rounded-full w-6 h-6 items-center justify-center text-xs shadow-md z-20 hover:bg-red-600 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                                        <span class="editable inline-block px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-bold mb-1.5"><i class="fa-regular fa-clock mr-1"></i> 12:30 - 21:00</span>
+                                        <h5 class="editable font-bold text-slate-800 text-sm">Perjalanan Pulang</h5>
+                                        <p class="editable text-slate-500 text-xs mt-1 leading-relaxed">Perjalanan kembali menuju Cikarang via Tol Trans Jawa. Tiba dengan selamat. Tour selesai.</p>
+                                    </div>
+                                </div>
+                                <div class="mt-4">
+                                    <button onclick="addRundownItem('container-h3')" class="show-on-edit w-full bg-slate-100 hover:bg-slate-200 text-slate-600 py-2 rounded-xl text-xs font-bold border border-dashed border-slate-300 flex items-center justify-center gap-2 transition-colors"><i class="fa-solid fa-plus"></i> Tambah Jadwal</button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    
+                    <div class="show-on-edit flex justify-center mt-6">
+                        <button onclick="addDay()" class="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-lg transition-colors flex items-center gap-2">
+                            <i class="fa-solid fa-calendar-plus"></i> Tambah Hari Baru
+                        </button>
+                    </div>
+
+                </div>
+
+                <!-- Estimasi Biaya dengan Kalkulator Otomatis -->
+                <div class="pb-4">
+                    <h3 class="text-lg sm:text-xl font-bold text-slate-800 mb-4 border-b border-slate-200 pb-2">Rincian Biaya Tour</h3>
+                    <div class="overflow-x-auto rounded-xl border border-slate-200">
+                        <table class="w-full text-left text-xs sm:text-sm text-slate-600 min-w-[400px]">
+                            <thead class="bg-slate-50 text-slate-800 uppercase font-bold text-[10px] sm:text-xs">
+                                <tr>
+                                    <th class="px-3 py-3 border-b">Komponen</th>
+                                    <th class="px-3 py-3 border-b text-right whitespace-nowrap">Estimasi (Rp)</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 bg-white" id="biaya-container">
+                                <tr class="relative group">
+                                    <td class="px-3 py-3 editable relative">
+                                        <button onclick="removeTableRow(this)" class="show-on-edit no-print absolute -left-2 top-3 bg-red-500 text-white rounded-full w-5 h-5 items-center justify-center text-[10px] shadow-sm z-20 hover:bg-red-600"><i class="fa-solid fa-trash"></i></button>
+                                        <span class="ml-4">1. Transport 4 Unit Bus 2025 (3D2N)</span>
+                                    </td>
+                                    <td class="px-3 py-3 text-right font-semibold editable whitespace-nowrap cost-value" oninput="calculateTotal()" onblur="formatRupiahCell(this)">55.000.000</td>
+                                </tr>
+                                <tr class="relative group">
+                                    <td class="px-3 py-3 editable relative">
+                                        <button onclick="removeTableRow(this)" class="show-on-edit no-print absolute -left-2 top-3 bg-red-500 text-white rounded-full w-5 h-5 items-center justify-center text-[10px] shadow-sm z-20 hover:bg-red-600"><i class="fa-solid fa-trash"></i></button>
+                                        <span class="ml-4">2. Hotel Citra Dream Tugu Inc Breakfast<br><span class="text-[10px] text-slate-400 block mt-1 font-normal">Siswa 1 Kmr 4 org+extrabed, Pendamping 1 Kmr 2 org</span></span>
+                                    </td>
+                                    <td class="px-3 py-3 text-right font-semibold editable whitespace-nowrap cost-value" oninput="calculateTotal()" onblur="formatRupiahCell(this)">70.000.000</td>
+                                </tr>
+                                <tr class="relative group">
+                                    <td class="px-3 py-3 editable relative">
+                                        <button onclick="removeTableRow(this)" class="show-on-edit no-print absolute -left-2 top-3 bg-red-500 text-white rounded-full w-5 h-5 items-center justify-center text-[10px] shadow-sm z-20 hover:bg-red-600"><i class="fa-solid fa-trash"></i></button>
+                                        <span class="ml-4">3. Lava Tour Paket Short Trip (1 Jam, 1 jeep 4 org)</span>
+                                    </td>
+                                    <td class="px-3 py-3 text-right font-semibold editable whitespace-nowrap cost-value" oninput="calculateTotal()" onblur="formatRupiahCell(this)">25.000.000</td>
+                                </tr>
+                                <tr class="relative group">
+                                    <td class="px-3 py-3 editable relative">
+                                        <button onclick="removeTableRow(this)" class="show-on-edit no-print absolute -left-2 top-3 bg-red-500 text-white rounded-full w-5 h-5 items-center justify-center text-[10px] shadow-sm z-20 hover:bg-red-600"><i class="fa-solid fa-trash"></i></button>
+                                        <span class="ml-4">4. Tiket Wisata Heha & Keraton</span>
+                                    </td>
+                                    <td class="px-3 py-3 text-right font-semibold editable whitespace-nowrap cost-value" oninput="calculateTotal()" onblur="formatRupiahCell(this)">15.000.000</td>
+                                </tr>
+                                <tr class="relative group">
+                                    <td class="px-3 py-3 editable relative">
+                                        <button onclick="removeTableRow(this)" class="show-on-edit no-print absolute -left-2 top-3 bg-red-500 text-white rounded-full w-5 h-5 items-center justify-center text-[10px] shadow-sm z-20 hover:bg-red-600"><i class="fa-solid fa-trash"></i></button>
+                                        <span class="ml-4">5. Konsumsi (3D2N)</span>
+                                    </td>
+                                    <td class="px-3 py-3 text-right font-semibold editable whitespace-nowrap cost-value" oninput="calculateTotal()" onblur="formatRupiahCell(this)">60.000.000</td>
+                                </tr>
+                                <tr class="relative group">
+                                    <td class="px-3 py-3 editable relative">
+                                        <button onclick="removeTableRow(this)" class="show-on-edit no-print absolute -left-2 top-3 bg-red-500 text-white rounded-full w-5 h-5 items-center justify-center text-[10px] shadow-sm z-20 hover:bg-red-600"><i class="fa-solid fa-trash"></i></button>
+                                        <span class="ml-4">6. Dokumentasi DLL</span>
+                                    </td>
+                                    <td class="px-3 py-3 text-right font-semibold editable whitespace-nowrap cost-value" oninput="calculateTotal()" onblur="formatRupiahCell(this)">5.000.000</td>
+                                </tr>
                             </tbody>
-                            <tfoot class="bg-brand-50 text-brand-600 font-bold"><tr class="border-t-2 border-brand-200"><td class="px-4 py-3 text-right uppercase text-xs">Total Estimasi</td><td class="px-4 py-3 text-right" id="total-biaya">Rp 125.000.000</td></tr></tfoot>
+                            <tfoot class="bg-brand-50 font-bold text-brand-600">
+                                <tr>
+                                    <td class="px-3 py-3 text-right uppercase text-[10px] sm:text-xs">Total Keseluruhan</td>
+                                    <td class="px-3 py-3 text-right text-sm sm:text-base whitespace-nowrap" id="total-biaya">Rp 230.000.000</td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
-                    <button onclick="addBiayaRow()" class="show-on-edit w-full mt-4 bg-slate-50 border border-dashed border-slate-300 py-2 rounded-xl text-xs font-bold text-slate-500">+ Tambah Baris Biaya</button>
+                    <div class="mt-4">
+                        <button onclick="addBiayaRow()" class="show-on-edit w-full bg-slate-100 hover:bg-slate-200 text-slate-600 py-2 rounded-xl text-xs font-bold border border-dashed border-slate-300 flex items-center justify-center gap-2 transition-colors"><i class="fa-solid fa-plus"></i> Tambah Rincian Biaya</button>
+                    </div>
                 </div>
 
-                <div class="text-center pt-8 border-t border-slate-100">
-                    <p class="text-slate-400 text-[10px] font-semibold">&copy; 2026 <span id="footer-logo-text">Arzayn Holiday</span>. All rights reserved.</p>
+                <div class="text-center pt-6 pb-2 border-t border-slate-100">
+                    <p class="text-slate-400 text-xs font-semibold">&copy; 2026 <span id="footer-logo-text">Arzayn Holiday</span>. All rights reserved.</p>
                 </div>
+
             </div>
         </div>
     </div>
 
+    <!-- SCRIPT INTERAKTIF LENGKAP -->
     <script>
         let isEditMode = false;
         let uploadTarget = { type: '', id: '' };
 
+        // Variabel untuk menyimpan kondisi awal Blogger sebelum diprint
+        let printOriginalParent, printOriginalNextSibling, printHiddenElements, printWasEditing;
+
+        const colorsByDay = [
+            { bg: 'bg-brand-500', light: 'bg-brand-50', text: 'text-brand-600' },
+            { bg: 'bg-blue-500', light: 'bg-blue-50', text: 'text-blue-600' },
+            { bg: 'bg-purple-500', light: 'bg-purple-50', text: 'text-purple-600' },
+            { bg: 'bg-green-500', light: 'bg-green-50', text: 'text-green-600' },
+            { bg: 'bg-pink-500', light: 'bg-pink-50', text: 'text-pink-600' },
+            { bg: 'bg-teal-500', light: 'bg-teal-50', text: 'text-teal-600' },
+            { bg: 'bg-orange-500', light: 'bg-orange-50', text: 'text-orange-600' },
+            { bg: 'bg-indigo-500', light: 'bg-indigo-50', text: 'text-indigo-600' }
+        ];
+
         function toggleEditMode() {
             isEditMode = !isEditMode;
-            document.body.classList.toggle('is-editing', isEditMode);
-            const editBtn = document.getElementById('editBtn');
-            editBtn.innerHTML = isEditMode ? '<i class="fa-solid fa-check text-green-500"></i> <span>Selesai Edit</span>' : '<i class="fa-solid fa-pen-to-square"></i> <span>Edit Data</span>';
-            document.querySelectorAll('.editable').forEach(el => el.contentEditable = isEditMode);
+            const editables = document.querySelectorAll('.editable');
+            const btn = document.getElementById('editBtn');
+
+            if (isEditMode) {
+                document.body.classList.add('is-editing');
+                btn.innerHTML = '<i class="fa-solid fa-check text-green-600"></i> <span class="whitespace-nowrap text-green-700">Selesai Edit</span>';
+                btn.classList.replace('bg-slate-100', 'bg-green-100');
+            } else {
+                document.body.classList.remove('is-editing');
+                btn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> <span class="whitespace-nowrap">Edit Data</span>';
+                btn.classList.replace('bg-green-100', 'bg-slate-100');
+            }
+            editables.forEach(el => el.contentEditable = isEditMode);
         }
 
-        // FUNGSI ISOLASI UNTUK EXPORT PDF BERSIH
-        function isolateApp() {
-            const container = document.querySelector('.app-container');
-            const originalParent = container.parentNode;
-            const originalNextSibling = container.nextSibling;
+        // ====================================================================
+        // SISTEM ISOLASI EXPORT TINGKAT TINGGI (Mengamankan dari Template Blogger)
+        // ====================================================================
+        
+        function prepareDomForExport() {
+            printWasEditing = isEditMode;
+            if (printWasEditing) toggleEditMode(); // Matikan mode edit sementara agar rapi
+
+            const appContainer = document.querySelector('.app-container');
+            printOriginalParent = appContainer.parentNode;
+            printOriginalNextSibling = appContainer.nextSibling;
             
-            // Sinkronisasi teks dan logo ke area cetak
-            document.getElementById('app-logo-text-print').innerText = document.getElementById('app-logo-text').innerText;
-            document.getElementById('logo-container-print').innerHTML = document.getElementById('logo-container').innerHTML;
+            // 1. Pindahkan aplikasi kita langsung ke posisi paling depan (body)
+            document.body.appendChild(appContainer);
+            
+            // 2. Sembunyikan secara paksa SEMUA widget, menu, dan sidebar bawaan Blogger
+            printHiddenElements = [];
+            Array.from(document.body.children).forEach(child => {
+                if (child !== appContainer && child.tagName !== 'SCRIPT' && child.tagName !== 'STYLE' && child.tagName !== 'LINK') {
+                    printHiddenElements.push({ el: child, display: child.style.display });
+                    child.style.display = 'none'; // Sembunyikan!
+                }
+            });
 
-            document.body.appendChild(container);
-            const hiddenElements = Array.from(document.body.children).filter(el => el !== container && !['SCRIPT', 'STYLE', 'LINK'].includes(el.tagName));
-            hiddenElements.forEach(el => el.style.display = 'none');
+            // 3. Tambahkan class pembunuh margin/padding bawaan Blogger
             document.body.classList.add('export-mode');
-            return { container, originalParent, originalNextSibling, hiddenElements };
         }
 
-        function restoreApp(state) {
+        function restoreDomAfterExport() {
+            const appContainer = document.querySelector('.app-container');
             document.body.classList.remove('export-mode');
-            state.hiddenElements.forEach(el => el.style.display = '');
-            if (state.originalNextSibling) state.originalParent.insertBefore(state.container, state.originalNextSibling);
-            else state.originalParent.appendChild(state.container);
+            
+            // Kembalikan semua widget dan menu Blogger seperti semula
+            printHiddenElements.forEach(item => { 
+                item.el.style.display = item.display; 
+            });
+            
+            // Kembalikan posisi aplikasi kita ke dalam postingan blog
+            if (printOriginalNextSibling) { 
+                printOriginalParent.insertBefore(appContainer, printOriginalNextSibling); 
+            } else { 
+                printOriginalParent.appendChild(appContainer); 
+            }
+
+            // Nyalakan lagi mode edit jika sebelumnya sedang mengedit
+            if (printWasEditing && !isEditMode) toggleEditMode();
         }
 
+        // --- FUNGSI PRINT PDF ---
         function printPDF() {
-            if (isEditMode) toggleEditMode();
-            const state = isolateApp();
+            prepareDomForExport();
+            
+            // Beri jeda 300ms agar browser fokus merender DOM baru sebelum Print Dialog muncul
             setTimeout(() => {
                 window.print();
-                // Gunakan sensor afterprint untuk mengembalikan tampilan blogger
-                window.addEventListener('afterprint', () => {
-                    restoreApp(state);
-                }, { once: true });
             }, 300);
-        }
 
-        // KEUANGAN
-        function calculateTotal() {
-            let total = 0;
-            document.querySelectorAll('.cost-value').forEach(el => {
-                let val = parseInt(el.innerText.replace(/\D/g, '')) || 0;
-                total += val;
+            // KUNCI UTAMA: Jangan kembalikan template Blogger sampai jendela Print DITUTUP!
+            window.addEventListener('afterprint', function onAfterPrint() {
+                restoreDomAfterExport();
+                window.removeEventListener('afterprint', onAfterPrint);
             });
-            document.getElementById('total-biaya').innerText = 'Rp ' + new Intl.NumberFormat('id-ID').format(total);
         }
 
-        function formatRupiahCell(el) {
-            let val = el.innerText.replace(/\D/g, '');
-            el.innerText = val ? new Intl.NumberFormat('id-ID').format(val) : '0';
+        // --- FUNGSI EXPORT PPT ---
+        async function exportToPPT() {
+            const btn = document.getElementById('pptBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Proses...';
+            
+            prepareDomForExport();
+            
+            // Beri waktu sebentar agar layout beradaptasi sebelum di-screenshot
+            await new Promise(r => setTimeout(r, 400));
+
+            try {
+                const card = document.querySelector('.main-content-card');
+                const canvas = await html2canvas(card, { scale: 2, useCORS: true });
+                
+                if (typeof PptxGenJS === 'undefined') {
+                    throw new Error("Sistem PPT belum siap dimuat. Silakan tunggu beberapa detik dan coba lagi.");
+                }
+
+                let pptx = new PptxGenJS();
+                const inchWidth = 10;
+                const inchHeight = inchWidth * (canvas.height / canvas.width);
+                pptx.defineLayout({ name: 'CUSTOM', width: inchWidth, height: inchHeight });
+                pptx.layout = 'CUSTOM';
+                
+                let slide = pptx.addSlide();
+                const imgData = canvas.toDataURL('image/jpeg', 0.8);
+                slide.addImage({ data: imgData, x: 0, y: 0, w: '100%', h: '100%' });
+                
+                pptx.writeFile({ fileName: 'Infografis_Tour_Arzayn.pptx' });
+                
+            } catch (err) {
+                alert("Gagal membuat PPT: " + err.message);
+            }
+            
+            // Proses selesai, kembalikan template Blogger
+            restoreDomAfterExport();
+            btn.innerHTML = originalText;
         }
 
-        function addBiayaRow() {
-            const row = document.createElement('tr');
-            row.innerHTML = `<td class="px-4 py-3 editable relative"><button onclick="this.closest('tr').remove(); calculateTotal();" class="show-on-edit no-print absolute left-1 top-3 text-red-500"><i class="fa-solid fa-trash text-xs"></i></button><span class="ml-4">Komponen Biaya Baru</span></td><td class="px-4 py-3 text-right font-semibold editable cost-value" oninput="calculateTotal()" onblur="formatRupiahCell(this)">0</td>`;
-            document.getElementById('biaya-container').appendChild(row);
-            if (isEditMode) row.querySelectorAll('.editable').forEach(el => el.contentEditable = true);
-        }
+        // ====================================================================
 
-        // GAMBAR
         function triggerFileSelect(type, id = null) {
-            uploadTarget = { type, id };
+            uploadTarget = { type: type, id: id };
             document.getElementById('fileInput').click();
         }
 
-        function handleFileSelect(e) {
-            const file = e.target.files[0];
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
             if (!file) return;
+
             const reader = new FileReader();
-            reader.onload = function(event) {
-                const result = event.target.result;
-                if (uploadTarget.type === 'hero') {
-                    document.getElementById('hero-bg-img').src = result;
-                } else if (uploadTarget.type === 'logo') {
-                    document.getElementById('logo-container').innerHTML = `<img src="${result}" class="w-full h-full object-cover">`;
-                }
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = uploadTarget.type === 'hero' ? 1200 : 800;
+                    const MAX_HEIGHT = uploadTarget.type === 'hero' ? 1200 : 800;
+                    
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                    } else {
+                        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    const imgDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+                    if (uploadTarget.type === 'hero') {
+                        document.getElementById('hero-bg-img').src = imgDataUrl;
+                    } else if (uploadTarget.type === 'logo') {
+                        document.getElementById('logo-container').innerHTML = `<img src="${imgDataUrl}" class="w-full h-full object-cover">`;
+                    } else if (uploadTarget.type === 'gallery') {
+                        const container = document.getElementById(uploadTarget.id);
+                        if(!container) return;
+                        
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'relative group shrink-0 w-28 h-28 snap-center photo-item';
+                        wrapper.innerHTML = `
+                            <img src="${imgDataUrl}" alt="Galeri" class="w-full h-full object-cover rounded-2xl border border-slate-200 shadow-sm">
+                            <button onclick="removePhoto(this, '${uploadTarget.id}')" class="show-on-edit no-print absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 items-center justify-center text-xs shadow-sm z-20 hover:bg-red-600 transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                        `;
+                        
+                        const addBtn = container.querySelector('.add-photo-btn');
+                        container.insertBefore(wrapper, addBtn);
+                        checkPhotoLimit(uploadTarget.id);
+                    }
+                    
+                    document.getElementById('fileInput').value = '';
+                };
+                img.src = e.target.result;
             };
             reader.readAsDataURL(file);
         }
 
         function editLogoText() {
-            const name = prompt("Masukkan Nama Travel/Agency:", document.getElementById('app-logo-text').innerText);
-            if (name && name.trim() !== "") {
-                document.getElementById('app-logo-text').innerText = name;
-                document.getElementById('footer-logo-text').innerText = name;
+            const currentName = document.getElementById('app-logo-text').innerText;
+            const newName = prompt("Masukkan Nama Travel/Agen Anda:", currentName);
+            if (newName && newName.trim() !== "") {
+                document.getElementById('app-logo-text').innerText = newName;
+                document.getElementById('footer-logo-text').innerText = newName;
             }
         }
 
-        function addFasilitas() {
-            const div = document.createElement('div');
-            div.className = "flex gap-3 relative fasilitas-item";
-            div.innerHTML = `<div class="w-6 shrink-0"><i class="fa-solid fa-check-circle text-brand-500"></i></div><div><h4 class="editable font-bold text-sm">Fasilitas Baru</h4><p class="editable text-slate-500 text-xs">Klik untuk mengisi detail fasilitas.</p></div><button onclick="this.parentElement.remove()" class="show-on-edit absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-[10px] shadow-sm"><i class="fa-solid fa-trash"></i></button>`;
-            document.getElementById('fasilitas-container').appendChild(div);
-            if (isEditMode) div.querySelectorAll('.editable').forEach(el => el.contentEditable = true);
+        function calculateTotal() {
+            let total = 0;
+            const costCells = document.querySelectorAll('.cost-value');
+            costCells.forEach(cell => {
+                let val = parseInt(cell.innerText.replace(/\D/g, ''));
+                if(val) total += val;
+            });
+            const formatter = new Intl.NumberFormat('id-ID');
+            document.getElementById('total-biaya').innerText = 'Rp ' + formatter.format(total);
+        }
+
+        function formatRupiahCell(element) {
+            let val = element.innerText.replace(/\D/g, '');
+            if(val) { element.innerText = new Intl.NumberFormat('id-ID').format(val); } 
+            else { element.innerText = '0'; }
+        }
+
+        function addBiayaRow() {
+            const container = document.getElementById('biaya-container');
+            const currentRows = container.querySelectorAll('tr').length + 1;
+            const newRow = document.createElement('tr');
+            newRow.className = 'relative group';
+            newRow.innerHTML = `
+                <td class="px-3 py-3 editable relative">
+                    <button onclick="removeTableRow(this)" class="show-on-edit no-print absolute -left-2 top-3 bg-red-500 text-white rounded-full w-5 h-5 items-center justify-center text-[10px] shadow-sm z-20 hover:bg-red-600"><i class="fa-solid fa-trash"></i></button>
+                    <span class="ml-4">${currentRows}. Keterangan Biaya Baru</span>
+                </td>
+                <td class="px-3 py-3 text-right font-semibold editable whitespace-nowrap cost-value" oninput="calculateTotal()" onblur="formatRupiahCell(this)">0</td>
+            `;
+            container.appendChild(newRow);
+            if (isEditMode) newRow.querySelectorAll('.editable').forEach(el => el.contentEditable = true);
+            calculateTotal();
+        }
+
+        function removeTableRow(btnElement) {
+            if(confirm('Apakah Anda yakin ingin menghapus baris biaya ini?')) {
+                btnElement.closest('tr').remove();
+                calculateTotal();
+            }
         }
 
         function updateDayDate(input, textId) {
             if (!input.value) return;
-            const d = new Date(input.value);
-            const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-            document.getElementById(textId).innerText = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+            const parts = input.value.split('-'); 
+            if (parts.length === 3) {
+                const year = parts[0];
+                const month = parseInt(parts[1], 10) - 1;
+                const day = parseInt(parts[2], 10);
+                const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+                const targetText = document.getElementById(textId);
+                if(targetText) targetText.innerText = `${day} ${months[month]} ${year}`;
+            }
+        }
+
+        function checkPhotoLimit(galleryId) {
+            const container = document.getElementById(galleryId);
+            if(!container) return;
+            const imageCount = container.querySelectorAll('.photo-item').length;
+            const addBtn = container.querySelector('.add-photo-btn');
+            
+            if(addBtn) {
+                if (imageCount >= 5) { addBtn.classList.add('hidden-btn'); } 
+                else { addBtn.classList.remove('hidden-btn'); }
+            }
+        }
+
+        function removePhoto(btnElement, galleryId) {
+            if(confirm('Apakah Anda yakin ingin menghapus foto ini?')) {
+                btnElement.parentElement.remove();
+                checkPhotoLimit(galleryId);
+            }
+        }
+
+        function addRundownItem(dayContainerId) {
+            const container = document.getElementById(dayContainerId);
+            if(!container) return;
+            
+            const uniqueId = 'gallery-' + Date.now(); 
+            const newItem = document.createElement('div');
+            newItem.className = 'mb-5 relative group';
+            newItem.innerHTML = `
+                <button onclick="removeElement(this)" class="show-on-edit no-print absolute -left-3 -top-3 bg-red-500 text-white rounded-full w-6 h-6 items-center justify-center text-xs shadow-md z-20 hover:bg-red-600 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                <span class="editable inline-block px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-bold mb-1.5"><i class="fa-regular fa-clock mr-1"></i> 00:00 - 00:00</span>
+                <h5 class="editable font-bold text-slate-800 text-sm">Judul Kegiatan Baru</h5>
+                <p class="editable text-slate-500 text-xs mt-1 leading-relaxed">Klik untuk mengubah deskripsi.</p>
+                <div class="mt-3 flex gap-2 overflow-x-auto hide-scrollbar snap-x pb-2" id="${uniqueId}">
+                    <button onclick="triggerFileSelect('gallery', '${uniqueId}')" class="show-on-edit add-photo-btn shrink-0 w-28 h-28 rounded-2xl border-2 border-dashed border-slate-300 flex-col items-center justify-center text-slate-400 hover:text-brand-500 hover:border-brand-300 hover:bg-brand-50 transition-colors">
+                        <i class="fa-solid fa-plus text-2xl"></i><span class="text-xs mt-2 font-semibold">Foto</span>
+                    </button>
+                </div>
+            `;
+            container.appendChild(newItem);
+            if (isEditMode) newItem.querySelectorAll('.editable').forEach(el => el.contentEditable = true);
+        }
+
+        function addDay() {
+            const dayBlocks = document.querySelectorAll('.day-block');
+            const dayNum = dayBlocks.length + 1;
+            const colorIndex = (dayNum - 1) % colorsByDay.length;
+            const colors = colorsByDay[colorIndex];
+            
+            const containerId = 'container-h' + dayNum;
+            const textId = 'date-h' + dayNum + '-text';
+
+            const newDayHtml = `
+                <div class="day-block relative flex items-start md:items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div onclick="if(isEditMode) addDay()" title="Tambah Hari Baru" class="day-icon-btn relative flex items-center justify-center w-10 h-10 rounded-full border-4 border-white ${colors.bg} text-white font-bold text-sm shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 mt-2 md:mt-0">H${dayNum}</div>
+                    
+                    <div class="w-[calc(100%-3.5rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm relative">
+                        <button onclick="removeDay(this)" title="Hapus Hari" class="show-on-edit no-print absolute -right-3 -top-3 bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm shadow-md z-30 hover:bg-red-700 transition-colors"><i class="fa-solid fa-trash"></i></button>
+
+                        <div class="date-wrapper relative ${colors.light} ${colors.text} px-3 py-1.5 rounded-lg inline-block mb-4 overflow-hidden">
+                            <input type="date" class="show-on-edit-block absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="updateDayDate(this, '${textId}')">
+                            <span class="text-xs font-semibold uppercase tracking-wider flex items-center gap-1">Hari Ke-${dayNum} <i class="show-on-edit fa-solid fa-pen text-[10px] ml-1 opacity-70"></i></span>
+                            <h4 id="${textId}" class="font-bold text-sm sm:text-base">Pilih Tanggal</h4>
+                        </div>
+                        
+                        <div id="${containerId}"></div>
+                        <div class="mt-4">
+                            <button onclick="addRundownItem('${containerId}')" class="show-on-edit w-full bg-slate-100 hover:bg-slate-200 text-slate-600 py-2 rounded-xl text-xs font-bold border border-dashed border-slate-300 flex items-center justify-center gap-2 transition-colors"><i class="fa-solid fa-plus"></i> Tambah Jadwal</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('timeline-container').insertAdjacentHTML('beforeend', newDayHtml);
+            addRundownItem(containerId); 
+            reindexDays(); 
+        }
+
+        function removeDay(btnElement) {
+            if(confirm('Apakah Anda yakin ingin menghapus HARI INI beserta seluruh jadwal di dalamnya?')) {
+                btnElement.closest('.day-block').remove();
+                reindexDays();
+            }
+        }
+
+        function reindexDays() {
+            const dayBlocks = document.querySelectorAll('.day-block');
+            dayBlocks.forEach((block, index) => {
+                const dayNum = index + 1;
+                const iconBtn = block.querySelector('.day-icon-btn');
+                if (iconBtn) iconBtn.textContent = 'H' + dayNum;
+                
+                const labelSpan = block.querySelector('.date-wrapper span');
+                if (labelSpan) {
+                    let labelText = 'Hari Ke-' + dayNum;
+                    if (dayNum === 1) labelText = 'Hari Pertama';
+                    if (dayNum === 2) labelText = 'Hari Kedua';
+                    if (dayNum === 3) labelText = 'Hari Ketiga';
+                    labelSpan.innerHTML = `${labelText} <i class="show-on-edit fa-solid fa-pen text-[10px] ml-1 opacity-70"></i>`;
+                }
+
+                const rundownContainer = block.querySelector('div[id^="container-h"]');
+                if (rundownContainer) {
+                    rundownContainer.id = 'container-h' + dayNum;
+                    const addJadwalBtn = block.querySelector('button[onclick^="addRundownItem"]');
+                    if (addJadwalBtn) addJadwalBtn.setAttribute('onclick', `addRundownItem('container-h${dayNum}')`);
+                }
+
+                const dateTextH4 = block.querySelector('h4[id^="date-h"]');
+                if (dateTextH4) {
+                    dateTextH4.id = 'date-h' + dayNum + '-text';
+                    const dateInput = block.querySelector('input[type="date"]');
+                    if (dateInput) dateInput.setAttribute('onchange', `updateDayDate(this, 'date-h${dayNum}-text')`);
+                }
+            });
+        }
+
+        function addFasilitas() {
+            const container = document.getElementById('fasilitas-container');
+            const newItem = document.createElement('div');
+            newItem.className = 'flex gap-3 relative group fasilitas-item transition-all';
+            newItem.innerHTML = `
+                <button onclick="removeElement(this)" class="show-on-edit no-print absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 items-center justify-center text-[10px] shadow-sm z-20 hover:bg-red-600 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                <div class="w-6 text-center shrink-0"><i class="fa-regular fa-circle-check text-brand-500 mt-1"></i></div>
+                <div class="w-full">
+                    <h4 class="editable font-bold text-slate-800 text-sm">Fasilitas Tambahan</h4>
+                    <p class="editable text-slate-500 text-xs mt-1">Isi detail fasilitas di sini.</p>
+                </div>
+            `;
+            container.appendChild(newItem);
+            if (isEditMode) newItem.querySelectorAll('.editable').forEach(el => el.contentEditable = true);
+        }
+
+        function removeElement(btnElement) {
+            if(confirm('Apakah Anda yakin ingin menghapus item ini?')) btnElement.parentElement.remove();
         }
     </script>
 </body>
