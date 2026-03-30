@@ -11,10 +11,8 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- Library untuk PPT dan Screenshot DOM -->
+    <!-- Library untuk Screenshot DOM -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.min.js"></script>
 
     <script>
         tailwind.config = {
@@ -40,12 +38,25 @@
             padding: 0 !important;
         }
 
+        /* TAMPILAN KHUSUS PRINT */
+        .print-header { display: none; }
+
         @media print {
-            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            * { 
+                -webkit-print-color-adjust: exact !important; 
+                print-color-adjust: exact !important; 
+            }
             .no-print { display: none !important; }
+            .print-header { 
+                display: flex !important; 
+                align-items: center; 
+                gap: 12px;
+                padding: 20px;
+                border-bottom: 2px solid #f1f5f9;
+            }
             body { background-color: white !important; padding: 0 !important; margin: 0 !important; }
             .app-container { box-shadow: none !important; max-width: 100% !important; margin: 0 !important; border: none !important; padding: 0 !important; }
-            .main-content-card { box-shadow: none !important; border: none !important; margin: 0 !important; }
+            .main-content-card { box-shadow: none !important; border: none !important; margin: 0 !important; border-radius: 0 !important; }
         }
         
         .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -68,7 +79,7 @@
 
     <div class="app-container w-full max-w-2xl relative">
         
-        <!-- Toolbar Menu -->
+        <!-- Toolbar Menu (Hanya di Layar) -->
         <div class="no-print sticky top-2 sm:top-4 z-[100] w-full mb-4 px-1">
             <div class="bg-white/95 backdrop-blur-md border border-slate-200 p-3 sm:p-4 flex flex-col sm:flex-row gap-3 justify-between items-center rounded-2xl shadow-xl">
                 <div class="flex items-center gap-2 group">
@@ -84,10 +95,7 @@
                         <i class="fa-solid fa-pen-to-square"></i> <span>Edit Data</span>
                     </button>
                     <button onclick="printPDF()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-sm">
-                        <i class="fa-solid fa-file-pdf"></i> <span>PDF</span>
-                    </button>
-                    <button id="pptBtn" onclick="exportToPPT()" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-sm">
-                        <i class="fa-solid fa-file-powerpoint"></i> <span>PPT</span>
+                        <i class="fa-solid fa-file-pdf"></i> <span>Simpan PDF</span>
                     </button>
                 </div>
             </div>
@@ -96,6 +104,17 @@
         <!-- Kanvas Konten -->
         <div class="main-content-card bg-white rounded-[2rem] shadow-2xl relative ring-1 ring-slate-200 overflow-hidden">
             
+            <!-- Header Khusus PDF (Hanya muncul saat print) -->
+            <div class="print-header">
+                <div id="logo-container-print" class="w-12 h-12 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center font-bold text-2xl overflow-hidden">
+                    <i class="fa-solid fa-plane-departure"></i>
+                </div>
+                <div>
+                    <h1 id="app-logo-text-print" class="font-bold text-xl text-slate-800">Arzayn Holiday</h1>
+                    <p class="text-slate-500 text-xs font-medium uppercase tracking-widest">Official Itinerary Report</p>
+                </div>
+            </div>
+
             <div class="relative h-64 sm:h-80 bg-slate-800 group/hero">
                 <img id="hero-bg-img" src="https://images.unsplash.com/photo-1584810359583-96fc3448beaa?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80" crossorigin="anonymous" alt="BG" class="w-full h-full object-cover opacity-60">
                 <button onclick="triggerFileSelect('hero')" class="show-on-edit absolute top-4 right-4 bg-white/90 px-3 py-2 rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 z-20">
@@ -135,7 +154,7 @@
                 <div>
                     <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-200 pb-2">Fasilitas All-In</h3>
                     <div id="fasilitas-container" class="grid sm:grid-cols-2 gap-4">
-                        <div class="flex gap-3 relative fasilitas-item"><div class="w-6 shrink-0"><i class="fa-solid fa-hotel text-brand-500"></i></div><div><h4 class="editable font-bold text-sm">Hotel Bintang 3</h4><p class="editable text-slate-500 text-xs">Menginap 2 malam (Twin Share).</p></div><button onclick="this.parentElement.remove()" class="show-on-edit absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-[10px]"><i class="fa-solid fa-trash"></i></button></div>
+                        <div class="flex gap-3 relative fasilitas-item"><div class="w-6 shrink-0"><i class="fa-solid fa-hotel text-brand-500"></i></div><div><h4 class="editable font-bold text-sm">Hotel Bintang 3</h4><p class="editable text-slate-500 text-xs">Menginap 2 malam (Twin Share) di Citra Dream Tugu.</p></div><button onclick="this.parentElement.remove()" class="show-on-edit absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-[10px]"><i class="fa-solid fa-trash"></i></button></div>
                         <div class="flex gap-3 relative fasilitas-item"><div class="w-6 shrink-0"><i class="fa-solid fa-utensils text-brand-500"></i></div><div><h4 class="editable font-bold text-sm">Konsumsi Lengkap</h4><p class="editable text-slate-500 text-xs">Makan 8x selama perjalanan.</p></div><button onclick="this.parentElement.remove()" class="show-on-edit absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-[10px]"><i class="fa-solid fa-trash"></i></button></div>
                     </div>
                     <button onclick="addFasilitas()" class="show-on-edit w-full mt-4 bg-slate-50 border border-dashed border-slate-300 py-2 rounded-xl text-xs font-bold text-slate-500">+ Tambah Fasilitas</button>
@@ -156,7 +175,7 @@
                                 <div id="container-h1">
                                     <div class="mb-4 relative group">
                                         <h5 class="editable font-bold text-sm">Kumpul & Berangkat</h5>
-                                        <p class="editable text-slate-500 text-xs mt-1">Persiapan dan perjalanan dari Cikarang.</p>
+                                        <p class="editable text-slate-500 text-xs mt-1">Persiapan dan perjalanan dari Cikarang menuju Yogyakarta.</p>
                                     </div>
                                 </div>
                                 <button onclick="addRundownItem('container-h1')" class="show-on-edit w-full mt-2 bg-slate-50 border border-dashed border-slate-300 py-2 rounded-lg text-[10px] font-bold text-slate-400">+ Tambah Jadwal</button>
@@ -173,16 +192,18 @@
                         <table class="w-full text-left text-sm">
                             <thead class="bg-slate-50 text-[10px] font-bold uppercase text-slate-500"><tr class="border-b border-slate-200"><th class="px-4 py-3">Komponen</th><th class="px-4 py-3 text-right">Estimasi (Rp)</th></tr></thead>
                             <tbody id="biaya-container" class="divide-y divide-slate-100">
-                                <tr><td class="px-4 py-3 editable relative"><button onclick="this.closest('tr').remove(); calculateTotal();" class="show-on-edit no-print absolute left-1 top-3 text-red-500"><i class="fa-solid fa-trash text-xs"></i></button><span class="ml-4">Transportasi Bus Pariwisata</span></td><td class="px-4 py-3 text-right font-semibold editable cost-value" oninput="calculateTotal()" onblur="formatRupiahCell(this)">55.000.000</td></tr>
-                                <tr><td class="px-4 py-3 editable relative"><button onclick="this.closest('tr').remove(); calculateTotal();" class="show-on-edit no-print absolute left-1 top-3 text-red-500"><i class="fa-solid fa-trash text-xs"></i></button><span class="ml-4">Akomodasi Hotel 3D2N</span></td><td class="px-4 py-3 text-right font-semibold editable cost-value" oninput="calculateTotal()" onblur="formatRupiahCell(this)">70.000.000</td></tr>
+                                <tr><td class="px-4 py-3 editable relative"><button onclick="this.closest('tr').remove(); calculateTotal();" class="show-on-edit no-print absolute left-1 top-3 text-red-500"><i class="fa-solid fa-trash text-xs"></i></button><span class="ml-4">Transportasi Bus Pariwisata Unit 2025</span></td><td class="px-4 py-3 text-right font-semibold editable cost-value" oninput="calculateTotal()" onblur="formatRupiahCell(this)">55.000.000</td></tr>
+                                <tr><td class="px-4 py-3 editable relative"><button onclick="this.closest('tr').remove(); calculateTotal();" class="show-on-edit no-print absolute left-1 top-3 text-red-500"><i class="fa-solid fa-trash text-xs"></i></button><span class="ml-4">Akomodasi Hotel Citra Dream 3D2N</span></td><td class="px-4 py-3 text-right font-semibold editable cost-value" oninput="calculateTotal()" onblur="formatRupiahCell(this)">70.000.000</td></tr>
                             </tbody>
-                            <tfoot class="bg-brand-50 text-brand-600 font-bold"><tr class="border-t-2 border-brand-200"><td class="px-4 py-3 text-right uppercase text-xs">Total</td><td class="px-4 py-3 text-right" id="total-biaya">Rp 125.000.000</td></tr></tfoot>
+                            <tfoot class="bg-brand-50 text-brand-600 font-bold"><tr class="border-t-2 border-brand-200"><td class="px-4 py-3 text-right uppercase text-xs">Total Estimasi</td><td class="px-4 py-3 text-right" id="total-biaya">Rp 125.000.000</td></tr></tfoot>
                         </table>
                     </div>
                     <button onclick="addBiayaRow()" class="show-on-edit w-full mt-4 bg-slate-50 border border-dashed border-slate-300 py-2 rounded-xl text-xs font-bold text-slate-500">+ Tambah Baris Biaya</button>
                 </div>
 
-                <div class="text-center pt-8 border-t border-slate-100"><p class="text-slate-400 text-[10px] font-semibold">&copy; 2026 <span id="footer-logo-text">Arzayn Holiday</span>. All rights reserved.</p></div>
+                <div class="text-center pt-8 border-t border-slate-100">
+                    <p class="text-slate-400 text-[10px] font-semibold">&copy; 2026 <span id="footer-logo-text">Arzayn Holiday</span>. All rights reserved.</p>
+                </div>
             </div>
         </div>
     </div>
@@ -195,15 +216,20 @@
             isEditMode = !isEditMode;
             document.body.classList.toggle('is-editing', isEditMode);
             const editBtn = document.getElementById('editBtn');
-            editBtn.innerHTML = isEditMode ? '<i class="fa-solid fa-check text-green-500"></i> <span>Selesai</span>' : '<i class="fa-solid fa-pen-to-square"></i> <span>Edit Data</span>';
+            editBtn.innerHTML = isEditMode ? '<i class="fa-solid fa-check text-green-500"></i> <span>Selesai Edit</span>' : '<i class="fa-solid fa-pen-to-square"></i> <span>Edit Data</span>';
             document.querySelectorAll('.editable').forEach(el => el.contentEditable = isEditMode);
         }
 
-        // FUNGSI ISOLASI UNTUK EXPORT BERSIH
+        // FUNGSI ISOLASI UNTUK EXPORT PDF BERSIH
         function isolateApp() {
             const container = document.querySelector('.app-container');
             const originalParent = container.parentNode;
             const originalNextSibling = container.nextSibling;
+            
+            // Sinkronisasi teks dan logo ke area cetak
+            document.getElementById('app-logo-text-print').innerText = document.getElementById('app-logo-text').innerText;
+            document.getElementById('logo-container-print').innerHTML = document.getElementById('logo-container').innerHTML;
+
             document.body.appendChild(container);
             const hiddenElements = Array.from(document.body.children).filter(el => el !== container && !['SCRIPT', 'STYLE', 'LINK'].includes(el.tagName));
             hiddenElements.forEach(el => el.style.display = 'none');
@@ -223,47 +249,14 @@
             const state = isolateApp();
             setTimeout(() => {
                 window.print();
-                window.addEventListener('afterprint', () => restoreApp(state), { once: true });
+                // Gunakan sensor afterprint untuk mengembalikan tampilan blogger
+                window.addEventListener('afterprint', () => {
+                    restoreApp(state);
+                }, { once: true });
             }, 300);
         }
 
-        // EXPORT PPT HORIZONTAL (Landscape 16:9)
-        async function exportToPPT() {
-            const btn = document.getElementById('pptBtn');
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>...';
-            if (isEditMode) toggleEditMode();
-            const state = isolateApp();
-
-            await new Promise(r => setTimeout(r, 500));
-
-            try {
-                const card = document.querySelector('.main-content-card');
-                const canvas = await html2canvas(card, { scale: 2, useCORS: true });
-                const imgData = canvas.toDataURL('image/jpeg', 0.8);
-
-                let pptx = new PptxGenJS();
-                // SET LAYOUT HORIZONTAL (LANDSCAPE)
-                pptx.layout = 'LAYOUT_16x9';
-
-                let slide = pptx.addSlide();
-                // Tempatkan gambar vertikal di tengah slide horizontal
-                slide.addImage({ 
-                    data: imgData, 
-                    x: '25%', // Geser ke tengah (Slide 100%, konten ditaruh di tengah 50%)
-                    y: 0, 
-                    w: '50%', // Lebar gambar disesuaikan agar tidak gepeng
-                    h: '100%', 
-                    sizing: { type: 'contain' } 
-                });
-
-                pptx.writeFile({ fileName: 'Infografis_Arzayn_Holiday.pptx' });
-            } catch (e) { alert("Gagal: " + e.message); }
-
-            restoreApp(state);
-            btn.innerHTML = '<i class="fa-solid fa-file-powerpoint"></i> <span>PPT</span>';
-        }
-
-        // LOGIKA KEUANGAN
+        // KEUANGAN
         function calculateTotal() {
             let total = 0;
             document.querySelectorAll('.cost-value').forEach(el => {
@@ -280,12 +273,12 @@
 
         function addBiayaRow() {
             const row = document.createElement('tr');
-            row.innerHTML = `<td class="px-4 py-3 editable relative"><button onclick="this.closest('tr').remove(); calculateTotal();" class="show-on-edit no-print absolute left-1 top-3 text-red-500"><i class="fa-solid fa-trash text-xs"></i></button><span class="ml-4">Komponen Baru</span></td><td class="px-4 py-3 text-right font-semibold editable cost-value" oninput="calculateTotal()" onblur="formatRupiahCell(this)">0</td>`;
+            row.innerHTML = `<td class="px-4 py-3 editable relative"><button onclick="this.closest('tr').remove(); calculateTotal();" class="show-on-edit no-print absolute left-1 top-3 text-red-500"><i class="fa-solid fa-trash text-xs"></i></button><span class="ml-4">Komponen Biaya Baru</span></td><td class="px-4 py-3 text-right font-semibold editable cost-value" oninput="calculateTotal()" onblur="formatRupiahCell(this)">0</td>`;
             document.getElementById('biaya-container').appendChild(row);
             if (isEditMode) row.querySelectorAll('.editable').forEach(el => el.contentEditable = true);
         }
 
-        // LOGIKA GAMBAR & UI
+        // GAMBAR
         function triggerFileSelect(type, id = null) {
             uploadTarget = { type, id };
             document.getElementById('fileInput').click();
@@ -296,15 +289,19 @@
             if (!file) return;
             const reader = new FileReader();
             reader.onload = function(event) {
-                if (uploadTarget.type === 'hero') document.getElementById('hero-bg-img').src = event.target.result;
-                else if (uploadTarget.type === 'logo') document.getElementById('logo-container').innerHTML = `<img src="${event.target.result}" class="w-full h-full object-cover">`;
+                const result = event.target.result;
+                if (uploadTarget.type === 'hero') {
+                    document.getElementById('hero-bg-img').src = result;
+                } else if (uploadTarget.type === 'logo') {
+                    document.getElementById('logo-container').innerHTML = `<img src="${result}" class="w-full h-full object-cover">`;
+                }
             };
             reader.readAsDataURL(file);
         }
 
         function editLogoText() {
-            const name = prompt("Nama Travel:", document.getElementById('app-logo-text').innerText);
-            if (name) {
+            const name = prompt("Masukkan Nama Travel/Agency:", document.getElementById('app-logo-text').innerText);
+            if (name && name.trim() !== "") {
                 document.getElementById('app-logo-text').innerText = name;
                 document.getElementById('footer-logo-text').innerText = name;
             }
@@ -313,7 +310,7 @@
         function addFasilitas() {
             const div = document.createElement('div');
             div.className = "flex gap-3 relative fasilitas-item";
-            div.innerHTML = `<div class="w-6 shrink-0"><i class="fa-solid fa-check-circle text-brand-500"></i></div><div><h4 class="editable font-bold text-sm">Fasilitas Baru</h4><p class="editable text-slate-500 text-xs">Detail fasilitas.</p></div><button onclick="this.parentElement.remove()" class="show-on-edit absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-[10px]"><i class="fa-solid fa-trash"></i></button>`;
+            div.innerHTML = `<div class="w-6 shrink-0"><i class="fa-solid fa-check-circle text-brand-500"></i></div><div><h4 class="editable font-bold text-sm">Fasilitas Baru</h4><p class="editable text-slate-500 text-xs">Klik untuk mengisi detail fasilitas.</p></div><button onclick="this.parentElement.remove()" class="show-on-edit absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-[10px] shadow-sm"><i class="fa-solid fa-trash"></i></button>`;
             document.getElementById('fasilitas-container').appendChild(div);
             if (isEditMode) div.querySelectorAll('.editable').forEach(el => el.contentEditable = true);
         }
